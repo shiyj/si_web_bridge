@@ -117,11 +117,6 @@ class WebuiBridge {
 		if (this.#winW !== undefined && this.#winH !== undefined) {
 			// window.resizeTo(this.#winW, this.#winH);
 		}
-		// WebSocket
-		if (!('WebSocket' in window)) {
-			alert('Sorry. WebSocket is not supported by your web browser.');
-			if (!this.#log) globalThis.close();
-		}
 		// Connect to the backend application
 		this.#start();
 		// Navigation event listener
@@ -489,7 +484,7 @@ class WebuiBridge {
 	async callCore(fn: string, ...args: DataTypes[]): Promise<DataTypes> {
 		return this.call('__webui_core_api__', fn, ...args);
 	}
-	// -- WebSocket ----------------------------
+	// -- data connection ----------------------------
 	#isConnected(): boolean {
 		return this.#dataProvider.isConnected();
 	}
@@ -742,7 +737,7 @@ class WebuiBridge {
 	async call(fn: string, ...args: DataTypes[]): Promise<DataTypes> {
 		if (!fn) return Promise.reject(new SyntaxError('No binding name is provided'));
 
-		if (!this.#isConnected()) return Promise.reject(new Error('WebSocket is not connected'));
+		if (!this.#isConnected()) return Promise.reject(new Error('data provider is not connected'));
 
 		// Check binding list
 		if (!this.#AllEvents && !this.#bindsList.includes(`${fn}`))
