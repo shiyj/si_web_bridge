@@ -496,16 +496,17 @@ class WebuiBridge {
 	#wsConnect(): void {
 		this.#dataProvider.wsConnect();
 	}
-	#wsOnOpen = (event: Event) => {
+	#dataProviderOnOpen = () => {
 		this.#wsWasConnected = true;
 		this.#unfreezeUI();
 		if (this.#log) console.log('WebUI -> Connected');
 		this.#checkToken();
 	};
-	#wsOnError = (event: Event) => {
+	#dataProviderOnError = () => {
 		if (this.#log) console.log(`WebUI -> Connection failed.`);
 	};
-	#wsOnClose = (event: CloseEvent) => {
+	
+	#dataProviderOnClose = (type: string, code: number, msg: string) => {
 		if (this.#closeReason === this.#CMD_NAVIGATION) {
 			this.#closeReason = 0;
 			if (this.#log) console.log(`WebUI -> Connection lost. Navigation to [${this.#closeValue}]`);
@@ -514,13 +515,13 @@ class WebuiBridge {
 		} else {
 			if (this.#wsStayAlive) {
 				// Re-connect
-				if (this.#log) console.log(`WebUI -> Connection lost (${event.code}). Reconnecting...`);
+				if (this.#log) console.log(`WebUI ->[${type}] Connection lost (${code}). Reconnecting...`);
 				this.#freezeUi();
 				setTimeout(() => this.#wsConnect(), this.#wsStayAliveTimeout);
 			}
 			else if (this.#log) {
 				// Debug close
-				console.log(`WebUI -> Connection lost (${event.code})`);
+				console.log(`WebUI -> [${type}] Connection lost (${code})`);
 				this.#freezeUi();
 			} else {
 				// Release close
@@ -532,8 +533,7 @@ class WebuiBridge {
 			this.#eventsCallback(this.event.DISCONNECTED);
 		}
 	};
-	#wsOnMessage = async (event: MessageEvent) => {
-		const buffer8 = new Uint8Array(event.data);
+	#dataProviderOnMessage = async (buffer8: Uint8Array) => {
 		if (buffer8.length < this.#PROTOCOL_SIZE) return;
 		if (buffer8[this.#PROTOCOL_SIGN] !== this.#WEBUI_SIGNATURE) return;
 		if (this.#isTextBasedCommand(buffer8[this.#PROTOCOL_CMD])) {
@@ -816,6 +816,18 @@ class WebuiBridge {
 		if (this.#log) console.log(`Core Response: [${response}]`);
 		return response;
 	}
+	/**
+	 * set the data provider
+	 * @param dataProvider the data provider
+	 */
+	setDataProvider(dataProvider: WebuiBridgeInterface):void {
+		this.#dataProvider = dataProvider;
+		this.#dataProvider.onOpen = this.#dataProviderOnOpen;
+		this.#dataProvider.onClose = this.#dataProviderOnClose;
+		this.#dataProvider.onError = this.#dataProviderOnError;
+		this.#dataProvider.onMessage = this.#dataProviderOnMessage;
+	}
+
 }
 // Export
 type webui = WebuiBridge;
