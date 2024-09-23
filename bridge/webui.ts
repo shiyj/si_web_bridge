@@ -16,6 +16,7 @@
 
 //@ts-ignore use *.ts import real extension
 import { AsyncFunction, addRefreshableEventListener } from './utils.ts';
+import { WebuiBridgeInterface } from './webui_bridge_interface.ts';
 
 type DataTypes = string | number | boolean | Uint8Array;
 
@@ -29,8 +30,9 @@ class WebuiBridge {
 	#winY: number;
 	#winW: number;
 	#winH: number;
+	// adapter
+	#dataProvider: WebuiBridgeInterface;
 	// Internals
-	#ws: WebSocket;
 	#wsStayAlive: boolean = true;
 	#wsStayAliveTimeout: number = 500;
 	#wsWasConnected: boolean = false;
@@ -166,7 +168,7 @@ class WebuiBridge {
 		this.#closeReason = reason;
 		this.#closeValue = value;
 		if (this.#wsIsConnected()) {
-			this.#ws.close();
+			this.#dataProvider.wsClose();
 		}
 	}
 	#freezeUi() {
@@ -229,6 +231,7 @@ class WebuiBridge {
 		this.#keepAlive();
 		this.#callPromiseID[0] = 0;
 		// Connect to the backend application
+		this.#TokenAccepted = false;
 		this.#wsConnect();
 	}
 	#keepAlive = async () => {
@@ -269,7 +272,7 @@ class WebuiBridge {
 		while (this.#sendQueue.length > 0) {
 			const currentPacket = this.#sendQueue.shift()!;
 			if (currentPacket.length < this.#MULTI_CHUNK_SIZE) {
-				this.#ws.send(currentPacket.buffer);
+				this.#dataProvider.wsSend(currentPacket.buffer);
 			} else {
 				// Pre-packet to let WebUI be ready for multi packet
 				const pre_packet = Uint8Array.of(
@@ -284,14 +287,14 @@ class WebuiBridge {
 					...new TextEncoder().encode(currentPacket.length.toString()),
 					0,
 				);
-				this.#ws.send(pre_packet.buffer);
+				this.#dataProvider.wsSend(pre_packet.buffer);
 				// Send chunks
 				let offset = 0;
 				const sendChunk = async () => {
 					if (offset < currentPacket.length) {
 						const chunkSize = Math.min(this.#MULTI_CHUNK_SIZE, currentPacket.length - offset);
 						const chunk = currentPacket.subarray(offset, offset + chunkSize);
-						this.#ws.send(chunk);
+						this.#dataProvider.wsSend(chunk);
 						offset += chunkSize;
 						await sendChunk();
 					}
@@ -488,21 +491,10 @@ class WebuiBridge {
 	}
 	// -- WebSocket ----------------------------
 	#wsIsConnected(): boolean {
-		return ((this.#ws) && (this.#ws.readyState === WebSocket.OPEN));
+		return this.#dataProvider.wsIsConnected();
 	}
 	#wsConnect(): void {
-		if (this.#ws) {
-			this.#ws.close();
-		}
-		this.#TokenAccepted = false;
-		const host = window.location.hostname;
-		const url = this.#secure ? ('wss://' + host) : ('ws://' + host);
-		this.#ws = new WebSocket(`${url}:${this.#port}/_webui_ws_connect`);
-		this.#ws.binaryType = 'arraybuffer';
-		this.#ws.onopen = this.#wsOnOpen.bind(this);
-		this.#ws.onmessage = this.#wsOnMessage.bind(this);
-		this.#ws.onclose = this.#wsOnClose.bind(this);
-		this.#ws.onerror = this.#wsOnError.bind(this);
+		this.#dataProvider.wsConnect();
 	}
 	#wsOnOpen = (event: Event) => {
 		this.#wsWasConnected = true;
@@ -673,7 +665,7 @@ class WebuiBridge {
 						console.log(`WebUI -> CMD -> Close`);
 						if (this.#wsIsConnected()) {
 							this.#wsStayAlive = false;
-							this.#ws.close();
+							this.#dataProvider.wsClose();
 						}
 					}
 					else {
