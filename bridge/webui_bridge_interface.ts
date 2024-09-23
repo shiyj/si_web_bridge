@@ -2,15 +2,15 @@
 
 class WebuiBridgeInterface {
 
-    wsIsConnected(): boolean {
+    isConnected(): boolean {
         return true;
     }
-    wsClose(): void {
+    close(): void {
     }
-    wsSend(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+    send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
     }
 
-    wsConnect(): void {
+    connect(): void {
     }
 
     onOpen: (() => any) | null;

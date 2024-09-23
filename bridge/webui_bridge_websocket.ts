@@ -21,17 +21,17 @@ class WebuiBridgeWS extends WebuiBridgeInterface {
         }
     }
 
-    wsIsConnected(): boolean {
+    isConnected(): boolean {
         return ((this.#ws) && (this.#ws.readyState === WebSocket.OPEN));
     }
-    wsClose(): void {
+    close(): void {
         this.#ws.close();
     }
-    wsSend(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+    send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
         this.#ws.send(data);
     }
 
-    wsConnect(): void {
+    connect(): void {
         if (this.#ws) {
             this.#ws.close();
         }

@@ -33,9 +33,9 @@ class WebuiBridge {
 	// adapter
 	#dataProvider: WebuiBridgeInterface;
 	// Internals
-	#wsStayAlive: boolean = true;
-	#wsStayAliveTimeout: number = 500;
-	#wsWasConnected: boolean = false;
+	#connectionStayAlive: boolean = true;
+	#connectionStayAliveTimeout: number = 500;
+	#wasConnected: boolean = false;
 	#TokenAccepted: boolean = false;
 	#closeReason: number = 0;
 	#closeValue: string;
@@ -128,7 +128,7 @@ class WebuiBridge {
 		if ('navigation' in globalThis) {
 			globalThis.navigation.addEventListener('navigate', (event) => {
 				if (!this.#allowNavigation) {
-					if (this.#AllEvents && (this.#wsIsConnected())) {
+					if (this.#AllEvents && (this.#isConnected())) {
 						event.preventDefault();
 						const url = new URL(event.destination.url);
 						if (this.#log) console.log(`WebUI -> DOM -> Navigation Event [${url.href}]`);
@@ -140,7 +140,7 @@ class WebuiBridge {
 			// Click navigation event listener
 			addRefreshableEventListener(document.body, 'a', 'click', (event) => {
 				if (!this.#allowNavigation) {
-					if (this.#AllEvents && (this.#wsIsConnected())) {
+					if (this.#AllEvents && (this.#isConnected())) {
 						event.preventDefault();
 						const { href } = event.target as HTMLAnchorElement;
 						if (this.#log) console.log(`WebUI -> DOM -> Navigation Click Event [${href}]`);
@@ -158,7 +158,7 @@ class WebuiBridge {
 			this.#close();
 		};
 		setTimeout(() => {
-			if (!this.#wsWasConnected) {
+			if (!this.#wasConnected) {
 				alert('Sorry. WebUI failed to connect to the backend application. Please try again.');
 			}
 		}, 1500);
@@ -167,8 +167,8 @@ class WebuiBridge {
 	#close(reason = 0, value = '') {
 		this.#closeReason = reason;
 		this.#closeValue = value;
-		if (this.#wsIsConnected()) {
-			this.#dataProvider.wsClose();
+		if (this.#isConnected()) {
+			this.#dataProvider.close();
 		}
 	}
 	#freezeUi() {
@@ -232,7 +232,7 @@ class WebuiBridge {
 		this.#callPromiseID[0] = 0;
 		// Connect to the backend application
 		this.#TokenAccepted = false;
-		this.#wsConnect();
+		this.#connect();
 	}
 	#keepAlive = async () => {
 		while (true) {
@@ -264,7 +264,7 @@ class WebuiBridge {
 	}
 	async #sendData(packet: Uint8Array) {
 		this.#Ping = false;
-		if ((!this.#wsIsConnected()) || packet === undefined) return;
+		if ((!this.#isConnected()) || packet === undefined) return;
 		// Enqueue the packet
 		this.#sendQueue.push(packet);
 		if (this.#isSending) return;
@@ -272,7 +272,7 @@ class WebuiBridge {
 		while (this.#sendQueue.length > 0) {
 			const currentPacket = this.#sendQueue.shift()!;
 			if (currentPacket.length < this.#MULTI_CHUNK_SIZE) {
-				this.#dataProvider.wsSend(currentPacket.buffer);
+				this.#dataProvider.send(currentPacket.buffer);
 			} else {
 				// Pre-packet to let WebUI be ready for multi packet
 				const pre_packet = Uint8Array.of(
@@ -287,14 +287,14 @@ class WebuiBridge {
 					...new TextEncoder().encode(currentPacket.length.toString()),
 					0,
 				);
-				this.#dataProvider.wsSend(pre_packet.buffer);
+				this.#dataProvider.send(pre_packet.buffer);
 				// Send chunks
 				let offset = 0;
 				const sendChunk = async () => {
 					if (offset < currentPacket.length) {
 						const chunkSize = Math.min(this.#MULTI_CHUNK_SIZE, currentPacket.length - offset);
 						const chunk = currentPacket.subarray(offset, offset + chunkSize);
-						this.#dataProvider.wsSend(chunk);
+						this.#dataProvider.send(chunk);
 						offset += chunkSize;
 						await sendChunk();
 					}
@@ -305,7 +305,7 @@ class WebuiBridge {
 		this.#isSending = false;
 	}
 	#sendClick(elem: string) {
-		if (this.#wsIsConnected()) {
+		if (this.#isConnected()) {
 			// Protocol
 			// 0: [SIGNATURE]
 			// 1: [TOKEN]
@@ -344,7 +344,7 @@ class WebuiBridge {
 		}
 	}
 	#checkToken() {
-		if (this.#wsIsConnected()) {
+		if (this.#isConnected()) {
 			// Protocol
 			// 0: [SIGNATURE]
 			// 1: [TOKEN]
@@ -370,7 +370,7 @@ class WebuiBridge {
 	}
 	#sendEventNavigation(url: string) {
 		if (url !== '') {
-			if (this.#wsIsConnected()) {
+			if (this.#isConnected()) {
 				if (this.#log) console.log(`WebUI -> Send Navigation Event [${url}]`);
 				const packet = Uint8Array.of(
 					// Protocol
@@ -490,14 +490,14 @@ class WebuiBridge {
 		return this.call('__webui_core_api__', fn, ...args);
 	}
 	// -- WebSocket ----------------------------
-	#wsIsConnected(): boolean {
-		return this.#dataProvider.wsIsConnected();
+	#isConnected(): boolean {
+		return this.#dataProvider.isConnected();
 	}
-	#wsConnect(): void {
-		this.#dataProvider.wsConnect();
+	#connect(): void {
+		this.#dataProvider.connect();
 	}
 	#dataProviderOnOpen = () => {
-		this.#wsWasConnected = true;
+		this.#wasConnected = true;
 		this.#unfreezeUI();
 		if (this.#log) console.log('WebUI -> Connected');
 		this.#checkToken();
@@ -513,11 +513,11 @@ class WebuiBridge {
 			this.#allowNavigation = true;
 			globalThis.location.replace(this.#closeValue);
 		} else {
-			if (this.#wsStayAlive) {
+			if (this.#connectionStayAlive) {
 				// Re-connect
 				if (this.#log) console.log(`WebUI ->[${type}] Connection lost (${code}). Reconnecting...`);
 				this.#freezeUi();
-				setTimeout(() => this.#wsConnect(), this.#wsStayAliveTimeout);
+				setTimeout(() => this.#connect(), this.#connectionStayAliveTimeout);
 			}
 			else if (this.#log) {
 				// Debug close
@@ -663,9 +663,9 @@ class WebuiBridge {
 					if (this.#log) {
 						// Debug Close
 						console.log(`WebUI -> CMD -> Close`);
-						if (this.#wsIsConnected()) {
-							this.#wsStayAlive = false;
-							this.#dataProvider.wsClose();
+						if (this.#isConnected()) {
+							this.#connectionStayAlive = false;
+							this.#dataProvider.close();
 						}
 					}
 					else {
@@ -701,7 +701,7 @@ class WebuiBridge {
 						if (this.#log) console.log(`WebUI -> CMD -> Token [${tokenHex}] Not Accepted. Reload page...`);
 						// Refresh the page to get a new token
 						this.#allowNavigation = true;
-						this.#wsStayAlive = false;
+						this.#connectionStayAlive = false;
 						globalThis.location.reload();
 					}
 					break;
@@ -742,7 +742,7 @@ class WebuiBridge {
 	async call(fn: string, ...args: DataTypes[]): Promise<DataTypes> {
 		if (!fn) return Promise.reject(new SyntaxError('No binding name is provided'));
 
-		if (!this.#wsIsConnected()) return Promise.reject(new Error('WebSocket is not connected'));
+		if (!this.#isConnected()) return Promise.reject(new Error('WebSocket is not connected'));
 
 		// Check binding list
 		if (!this.#AllEvents && !this.#bindsList.includes(`${fn}`))
@@ -803,7 +803,7 @@ class WebuiBridge {
 	 * @return - Boolean `true` if connected
 	 */
 	isConnected(): boolean {
-		return ((this.#wsIsConnected()) && (this.#TokenAccepted));
+		return ((this.#isConnected()) && (this.#TokenAccepted));
 	}
 	/**
 	 * Get OS high contrast preference.
