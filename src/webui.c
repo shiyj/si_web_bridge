@@ -4699,6 +4699,9 @@ static const char* _webui_generate_js_bridge(_webui_window_t* win, struct mg_con
         c += WEBUI_SN_PRINTF_DYN(js + c, len, "winX: %u, winY: %u, ", win->x, win->y);
     // Close
     WEBUI_STR_CAT_DYN(js, len, "});});");
+    // add websocket_setup
+    WEBUI_STR_CAT_DYN(js, len, "wsdp = new WebuiBridgeWS()");
+    WEBUI_STR_CAT_DYN(js, len, "globalThis.webui.setDataProvider(wsdp);");
 
     // Free
     _webui_mutex_unlock(&_webui.mutex_bridge);
