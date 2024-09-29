@@ -11,9 +11,19 @@ class WebuiBridgeWS extends WebuiBridgeInterface {
 
     // keep
     #log: boolean = false;
-    constructor({ log = false }: { log: boolean }) {
+    constructor({
+        log = false,
+        port = 0,
+        secure = false,
+    }: {
+        log: boolean;
+        port: number;
+        secure: boolean;
+    }) {
         super();
         this.#log = log;
+        this.#port = port;
+        this.#secure = secure;
         // WebSocket
         if (!('WebSocket' in window)) {
             alert('Sorry. WebSocket is not supported by your web browser.');
@@ -69,4 +79,6 @@ class WebuiBridgeWS extends WebuiBridgeInterface {
 
 }
 
-export { WebuiBridgeWS };
+type webui_ws = WebuiBridgeWS;
+export default webui_ws;
+export type { WebuiBridgeWS };

@@ -4688,8 +4688,8 @@ static const char* _webui_generate_js_bridge(_webui_window_t* win, struct mg_con
     int c = WEBUI_SN_PRINTF_DYN(
         js, len,
         "%s\n document.addEventListener(\"DOMContentLoaded\",function(){ globalThis.webui = "
-        "new WebuiBridge({ secure: %s, token: %" PRIu32 ", port: %zu, log: %s, ",
-        webui_javascript_bridge, TLS, token, win->server_port, log
+        "new WebuiBridge({ token: %" PRIu32 ", log: %s, ",
+        webui_javascript_bridge, token, log
     );
     // Window Size
     if (win->size_set)
@@ -4698,10 +4698,12 @@ static const char* _webui_generate_js_bridge(_webui_window_t* win, struct mg_con
     if (win->position_set)
         c += WEBUI_SN_PRINTF_DYN(js + c, len, "winX: %u, winY: %u, ", win->x, win->y);
     // Close
-    WEBUI_STR_CAT_DYN(js, len, "});});");
+    WEBUI_STR_CAT_DYN(js, len, "});");
+    c = _webui_strlen(js);
     // add websocket_setup
-    WEBUI_STR_CAT_DYN(js, len, "wsdp = new WebuiBridgeWS()");
+    WEBUI_SN_PRINTF_DYN(js + c, len, "wsdp = new WebuiBridgeWS({log:%s, port: %zu, secure: %s});", log, win->server_port, TLS);
     WEBUI_STR_CAT_DYN(js, len, "globalThis.webui.setDataProvider(wsdp);");
+    WEBUI_STR_CAT_DYN(js, len, "});");
 
     // Free
     _webui_mutex_unlock(&_webui.mutex_bridge);

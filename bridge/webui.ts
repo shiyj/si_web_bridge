@@ -14,17 +14,14 @@
   By Oculi Julien. Copyright (c) 2023.
 */
 
-//@ts-ignore use *.ts import real extension
-import { AsyncFunction, addRefreshableEventListener } from './utils.ts';
-import { WebuiBridgeInterface } from './webui_bridge_interface.ts';
+import { AsyncFunction, addRefreshableEventListener } from './utils';
+import { WebuiBridgeInterface } from './webui_bridge_interface';
 
 type DataTypes = string | number | boolean | Uint8Array;
 
 class WebuiBridge {
 	// WebUI Settings
-	#secure: boolean;
 	#token: number;
-	#port: number;
 	#log: boolean;
 	#winX: number;
 	#winY: number;
@@ -76,18 +73,14 @@ class WebuiBridge {
     };
 	// Constructor
 	constructor({
-		secure = false,
 		token = 0,
-		port = 0,
 		log = false,
 		winX = 0,
 		winY = 0,
 		winW = 0,
 		winH = 0,
 	}: {
-		secure: boolean;
 		token: number;
-		port: number;
 		log?: boolean;
 		winX: number;
 		winY: number;
@@ -95,9 +88,7 @@ class WebuiBridge {
 		winH: number;
 	}) {
 		// Constructor arguments are injected by webui.c
-		this.#secure = secure;
 		this.#token = token;
-		this.#port = port;
 		this.#log = log;
 		this.#winX = winX;
 		this.#winY = winY;
@@ -117,8 +108,7 @@ class WebuiBridge {
 		if (this.#winW !== undefined && this.#winH !== undefined) {
 			// window.resizeTo(this.#winW, this.#winH);
 		}
-		// Connect to the backend application
-		this.#start();
+		
 		// Navigation event listener
 		if ('navigation' in globalThis) {
 			globalThis.navigation.addEventListener('navigate', (event) => {
@@ -821,6 +811,7 @@ class WebuiBridge {
 		this.#dataProvider.onClose = this.#dataProviderOnClose;
 		this.#dataProvider.onError = this.#dataProviderOnError;
 		this.#dataProvider.onMessage = this.#dataProviderOnMessage;
+		this.#start();
 	}
 
 }
